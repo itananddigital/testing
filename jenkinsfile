@@ -1,0 +1,56 @@
+pipeline {
+    agent any
+
+    environment {
+        DOCKER_IMAGE = "8848devops/testing:latest"
+        REGISTRY_CREDENTIALS = 'docker-hub-credentials'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git 'https://github.com/itananddigital/testing.git'
+            }
+        }
+
+        stage('Build') {
+            steps {
+                script {
+                    docker.build("${env.REPO_NAME}")
+                }
+            }
+        }
+
+        stage('Push Image') {
+            steps {
+                script {
+                    docker.withRegistry('https://index.docker.io/v1/', REGISTRY_CREDENTIALS) {
+                        docker.image("${env.DOCKER_IMAGE}").push()
+                    }
+                }
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                script {
+                    sh '''
+                    docker run -d -p ${env.PORT}:80 8848devops/${env.REPO_NAME}:latest
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            echo 'Cleaning up...'
+        }
+        success {
+            echo 'Deployment successful!'
+        }
+        failure {
+            echo 'Deployment failed!'
+        }
+    }
+}
